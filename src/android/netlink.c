@@ -38,7 +38,7 @@ ssize_t active_interfaces(interface *ifs, size_t max) {
         .gen = { .rtgen_family = AF_INET6 }
     };
 
-    uint8_t reply[2048];
+    uint8_t reply[4096];
     struct rtattr *attr;
     size_t count = 0;
     size_t len;
