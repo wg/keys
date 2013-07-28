@@ -22,7 +22,7 @@ public class InitActivity extends Activity implements SeekBar.OnSeekBarChangeLis
         super.onCreate(state);
 
         Resources resources = getResources();
-        setTitle(resources.getString(R.string.initTitle));
+        setTitle(getString(R.string.initTitle));
         setContentView(R.layout.init);
 
         for (Param p : Param.values()) {
@@ -72,14 +72,29 @@ public class InitActivity extends Activity implements SeekBar.OnSeekBarChangeLis
 
     public void onClick(View v) {
         v.setEnabled(false);
+        new InitTask().execute();
+    }
 
-        String path = KeysCore.databaseDir(getApplicationContext()).getAbsolutePath();
-        String passwd = KeysCore.initialize(path, (long) Math.pow(2, N), r, p);
+    private class InitTask extends ProgressTask<Void, Void, String> {
+        protected InitTask() {
+            super(InitActivity.this, R.string.initializing);
+        }
 
-        Intent intent = new Intent(this, CertActivity.class);
-        intent.putExtra("password", passwd);
-        startActivity(intent);
+        @Override
+        protected String doInBackground(Void... voids) {
+            String path = KeysCore.databaseDir(getApplicationContext()).getAbsolutePath();
+            return KeysCore.initialize(path, (long) Math.pow(2, N), r, p);
+        }
 
-        finish();
+        @Override
+        protected void onPostExecute(String passwd) {
+            super.onPostExecute(passwd);
+
+            Intent intent = new Intent(InitActivity.this, ReadyActivity.class);
+            intent.putExtra("password", passwd);
+            startActivity(intent);
+
+            finish();
+        }
     }
 }

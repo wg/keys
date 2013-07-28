@@ -34,4 +34,5 @@
         the Free Software Foundation.
     ]]>
     </string>
+    <string name="initializing">Initializing database</string>
 </resources>
