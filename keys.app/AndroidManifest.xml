@@ -26,7 +26,7 @@
     </activity>
 
     <activity android:name=".InitActivity"/>
-    <activity android:name=".CertActivity"/>
+    <activity android:name=".ReadyActivity"/>
     <activity android:name=".SettingsActivity" android:parentActivityName=".KeysActivity"/>
     <activity android:name=".WebViewActivity"/>
 
