@@ -63,6 +63,9 @@ public class KeysActivity extends Activity implements AdapterView.OnItemSelected
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.manage:
+                startActivity(new Intent(this, ManageActivity.class));
+                break;
             case R.id.settings:
                 startActivity(new Intent(this, SettingsActivity.class));
                 break;

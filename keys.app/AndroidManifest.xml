@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.lambdaworks.keys"
-          android:versionCode="1"
-          android:versionName="1.0.0">
-  <uses-sdk android:targetSdkVersion="17" android:minSdkVersion="16"/>
+          android:versionCode="2"
+          android:versionName="1.0.1">
+  <uses-sdk android:targetSdkVersion="18" android:minSdkVersion="16"/>
 
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
@@ -27,6 +27,8 @@
 
     <activity android:name=".InitActivity"/>
     <activity android:name=".ReadyActivity"/>
+    <activity android:name=".IssueActivity" />
+    <activity android:name=".ManageActivity" android:parentActivityName=".KeysActivity"/>
     <activity android:name=".SettingsActivity" android:parentActivityName=".KeysActivity"/>
     <activity android:name=".WebViewActivity"/>
 

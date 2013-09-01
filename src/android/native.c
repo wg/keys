@@ -109,6 +109,41 @@ jobjectArray JNICALL interfaces(JNIEnv *env, jclass cls) {
     return array;
 }
 
+jstring JNICALL issue_cert(JNIEnv *env, jclass cls, jstring path) {
+    EVP_PKEY *ik, *pk;
+    X509 *issuer, *cert;
+    char pem[PATH_MAX];
+    jstring str;
+
+    const char *chars = (*env)->GetStringUTFChars(env, path, 0);
+    snprintf(pem, PATH_MAX, "%s/server.pem", chars);
+    (*env)->ReleaseStringUTFChars(env, path, chars);
+
+    read_pem(pem, NULL, NULL, &ik, 1, &issuer);
+
+    if (issue_client_cert(issuer, ik, &cert, &pk)) {
+        BIO *out = BIO_new(BIO_s_mem());
+        PEM_write_bio_PKCS8PrivateKey(out, pk, NULL, NULL, 0, NULL, NULL);
+        PEM_write_bio_X509(out, issuer);
+        PEM_write_bio_X509(out, cert);
+        BIO_write(out, "\0", 1);
+
+        BIO_get_mem_data(out, &chars);
+        str = (*env)->NewStringUTF(env, chars);
+        BIO_free(out);
+    } else {
+        jclass e = (*env)->FindClass(env, "java/lang/IllegalStateException");
+        (*env)->ThrowNew(env, e, "Cert issue failed");
+    }
+
+    EVP_PKEY_free(ik);
+    EVP_PKEY_free(pk);
+    X509_free(issuer);
+    X509_free(cert);
+
+    return str;
+}
+
 jobject JNICALL version(JNIEnv *env, jclass cls) {
     cls = (*env)->FindClass(env, "com/lambdaworks/keys/Version");
     jstring openssl = (*env)->NewStringUTF(env, OPENSSL_VERSION_TEXT);
@@ -119,6 +154,7 @@ jobject JNICALL version(JNIEnv *env, jclass cls) {
 static const JNINativeMethod core_methods[] = {
     { "initialize", "(Ljava/lang/String;JJJ)Ljava/lang/String;",  (void *) initialize },
     { "interfaces", "()[Lcom/lambdaworks/keys/NetworkInterface;", (void *) interfaces },
+    { "issueCert",  "(Ljava/lang/String;)Ljava/lang/String;",     (void *) issue_cert },
     { "version",    "()Lcom/lambdaworks/keys/Version;",           (void *) version    },
 };
 

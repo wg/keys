@@ -30,7 +30,7 @@
                   android:layout_width="fill_parent"
                   android:layout_height="wrap_content"
                   android:layout_alignParentBottom="true"
-                  android:orientation="horizontal"
+                  android:orientation="vertical"
                   android:gravity="center">
         <Button android:id="@+id/ok"
                 style="?android:attr/borderlessButtonStyle"

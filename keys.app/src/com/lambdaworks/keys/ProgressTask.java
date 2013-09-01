@@ -12,6 +12,7 @@ public abstract class ProgressTask<Params, Progress, Result> extends AsyncTask<P
     protected ProgressTask(Context context, int message) {
         dialog = new ProgressDialog(context);
         dialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
+        dialog.setCancelable(false);
         dialog.setMessage(context.getString(message));
     }
 
