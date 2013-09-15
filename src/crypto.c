@@ -7,25 +7,26 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <crypto_secretbox.h>
 
 #include "config.h"
 #include "crypto.h"
 #include "crypto_scrypt.h"
 
-bool derive_kek(uint8_t *passwd, size_t len, kdfp *kdfp, uint8_t *kek) {
+bool derive_kek(uint8_t *passwd, size_t len, kdfp *kdfp, uint8_t *kek, size_t klen) {
     uint8_t *salt = kdfp->salt;
     uint64_t N    = kdfp->N;
     uint64_t r    = kdfp->r;
     uint64_t p    = kdfp->p;
-    return crypto_scrypt(passwd, len, salt, SALT_LEN, N, r, p, kek, KEY_LEN) == 0;
+    return crypto_scrypt(passwd, len, salt, SALT_LEN, N, r, p, kek, klen) == 0;
 }
 
-bool prompt_kek(char *prompt, kdfp *kdfp, uint8_t *kek, bool verify) {
+bool prompt_kek(char *prompt, kdfp *kdfp, uint8_t *kek, size_t len, bool verify) {
   char passwd[PASSWD_MAX];
   bool ok = false;
 
   if (!EVP_read_pw_string(passwd, PASSWD_MAX - 1, prompt, verify)) {
-      ok = derive_kek((uint8_t *) passwd, strlen(passwd), kdfp, kek);
+      ok = derive_kek((uint8_t *) passwd, strlen(passwd), kdfp, kek, len);
   }
   OPENSSL_cleanse(passwd, PASSWD_MAX);
 
@@ -62,13 +63,38 @@ void encrypt_gcm(uint8_t *key, uint8_t *iv, void *addr, size_t len, uint8_t *tag
     EVP_CIPHER_CTX_cleanup(&ctx);
 }
 
-bool decrypt_box(uint8_t *key, box *box, size_t len) {
-    return decrypt_gcm(key, box->iv, box->data, len, box->tag);
+bool decrypt_box(uint8_t *keys, box *outer, size_t len) {
+    box *inner = (box *) outer->data;
+
+    uint8_t *outer_key = keys;
+    uint8_t *inner_key = keys + BOX_KEY_LEN;
+    bool ok = false;
+
+    if (decrypt_gcm(outer_key, outer->iv, outer->data, sizeof(box) + len, outer->tag)) {
+        uint8_t *data = inner->tag;
+        size_t inner_len = len + crypto_secretbox_ZEROBYTES;
+        memset(data, 0, crypto_secretbox_BOXZEROBYTES);
+        ok = crypto_secretbox_open(data, data, inner_len, inner->iv, inner_key) == 0;
+    }
+
+    return ok;
 }
 
-void encrypt_box(uint8_t *key, box *box, size_t len) {
-    rand_bytes(box->iv, IV_LEN);
-    encrypt_gcm(key, box->iv, box->data, len, box->tag);
+void encrypt_box(uint8_t *keys, box *outer, size_t len) {
+    box *inner = (box *) outer->data;
+
+    uint8_t *outer_key = keys;
+    uint8_t *inner_key = keys + BOX_KEY_LEN;
+
+    rand_bytes(outer->iv, BOX_IV_LEN);
+    rand_bytes(inner->iv, BOX_IV_LEN);
+
+    uint8_t *data = inner->tag;
+    size_t inner_len = len + crypto_secretbox_ZEROBYTES;
+    memset(data, 0, crypto_secretbox_ZEROBYTES);
+    assert(crypto_secretbox(data, data, inner_len, inner->iv, inner_key) == 0);
+
+    encrypt_gcm(outer_key, outer->iv, outer->data, sizeof(box) + len, outer->tag);
 }
 
 void rand_bytes(uint8_t *buf, size_t len) {

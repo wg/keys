@@ -36,8 +36,8 @@ bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
 
     rand_bytes(kdfp->salt, SALT_LEN);
 
-    if (!derive_kek(passwd, len, kdfp, kek)) goto done;
-    if (!init_index("index", kek, kdfp))     goto done;
+    if (!derive_kek(passwd, len, kdfp, kek, KEY_LEN)) goto done;
+    if (!init_index("index", kek, kdfp))              goto done;
 
     ok = true && write_pem("server.pem", NULL, len, server_pk, group, 1, server_cert);
     ok = ok   && write_pem("client.pem", NULL, len, client_pk, group, 2, server_cert, client_cert);

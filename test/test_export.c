@@ -110,7 +110,7 @@ void test_export() {
 
     // sanity test decryption failure
 
-    corrupt("export.dat", KDFP_LEN + IV_LEN + TAG_LEN);
+    corrupt("export.dat", KDFP_LEN + BOX_LEN(0));
     assert((fd = load_export("export.dat", &kdfp)) > 0);
     assert(!next_entry(fd, kek, &size));
     close(fd);

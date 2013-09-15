@@ -9,6 +9,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <crypto_secretbox.h>
+
 #include "config.h"
 #include "crypto.h"
 #include "test.h"
@@ -55,6 +57,28 @@ void encrypt_gcm256(char *ckey, char *civ, char *cdata, char *cctxt, char *ctag)
     assert(!memcmp(data, ctxt, n));
 }
 
+bool decrypt_gcm256(uint8_t *key, uint8_t *iv, uint8_t *data, size_t len, uint8_t *tag) {
+    EVP_CIPHER_CTX ctx;
+    int rc, tmp;
+
+    EVP_CIPHER_CTX_init(&ctx);
+    assert(EVP_DecryptInit_ex(&ctx, EVP_aes_256_gcm(), NULL, NULL, NULL));
+    EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, IV_LEN, NULL);
+    EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG,  TAG_LEN, tag);
+    assert(EVP_DecryptInit_ex(&ctx, NULL, NULL, key, iv));
+    assert(EVP_DecryptUpdate(&ctx, data, &tmp, data, len));
+    rc = EVP_CipherFinal_ex(&ctx, NULL, &tmp);
+    EVP_CIPHER_CTX_cleanup(&ctx);
+
+    return rc == 1;
+}
+
+void cleanup(char *dir, idx *idx) {
+    close_index(idx);
+    unlink("index");
+    rmdir_temp_dir(dir);
+}
+
 void test_sanity() {
     char *key, *iv, *tag, *data, *ctxt;
 
@@ -91,12 +115,46 @@ void test_sanity() {
     tag  = "b094dac5d93471bdec1a502270e3cc6c";
     encrypt_gcm256(key, iv, data, ctxt, tag);
 
+    // box is AES-GCM(k0, XSalsa20Poly1305(k1, ...))
+
+    uint8_t keys[64];
+    size_t  len = 64;
+    box  *outer = malloc(BOX_LEN(len));
+    box  *inner = (box *) outer->data;
+
+    rand_bytes(keys, sizeof(keys));
+    rand_bytes(inner->data, len);
+    encrypt_box(keys, outer, len);
+
+    uint8_t *k0 = keys;
+    uint8_t *k1 = keys + 32;
+
+    assert(decrypt_gcm256(k0, outer->iv, outer->data, sizeof(box) + len, outer->tag));
+
+    size_t inner_len = len + crypto_secretbox_ZEROBYTES;
+    memset(inner->tag, 0, crypto_secretbox_BOXZEROBYTES);
+    assert(crypto_secretbox_open(inner->tag, inner->tag, inner_len, inner->iv, k1) == 0);
+
+    // database key sanity
 
     uint8_t kek[KEY_LEN] = { 0 };
     kdfp kdfp = { .N = 2, .r = 1, .p = 1};
-    uint32_t line;
-    char *dir;
     idx *idx;
+    char *dir;
+
+    dir = chdir_temp_dir();
+
+    init_index("index", kek, &kdfp);
+    idx = open_index("index", &kdfp);
+    load_index(&idx, kek);
+    k0 = idx->key;
+    k1 = idx->key + BOX_KEY_LEN;
+    assert(memcmp(k0, k1, BOX_KEY_LEN) != 0);
+    cleanup(dir, idx);
+
+    // decryption failures
+
+    uint32_t line;
     entry *entry;
 
     // index (key) decryption failure
@@ -104,13 +162,10 @@ void test_sanity() {
     dir = chdir_temp_dir();
 
     init_index("index", kek, &kdfp);
-    corrupt("index", KDFP_LEN + TAG_LEN + IV_LEN);
+    corrupt("index", KDFP_LEN + BOX_LEN(0));
     idx = open_index("index", &kdfp);
     assert(idx != NULL && load_index(&idx, kek) == false);
-    close_index(idx);
-
-    unlink("index");
-    rmdir_temp_dir(dir);
+    cleanup(dir, idx);
 
     // index (data) decryption failure
 
@@ -121,14 +176,12 @@ void test_sanity() {
     idx = db_load(kek, &kdfp);
     assert(update_index("index", idx, kek, &kdfp, encode_id(1), entry));
     close_index(idx);
-    corrupt("index", KDFP_LEN + ((TAG_LEN + IV_LEN) * 2) + KEY_LEN);
+    corrupt("index", KDFP_LEN + BOX_LEN(KEY_LEN) + BOX_LEN(0));
 
     idx = open_index("index", &kdfp);
     assert(idx != NULL && load_index(&idx, kek) == false);
-    close_index(idx);
 
-    unlink("index");
-    rmdir_temp_dir(dir);
+    cleanup(dir, idx);
 
     // entry decryption failure
 
@@ -138,7 +191,7 @@ void test_sanity() {
 
     idx = db_with_entry("user: foo", id0);
     entry_path(path, id0, NULL);
-    corrupt(path, TAG_LEN + IV_LEN);
+    corrupt(path, BOX_LEN(0));
     assert(load_entry(path, idx->key) == NULL);
 
     db_destroy(idx);

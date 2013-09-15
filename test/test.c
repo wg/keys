@@ -45,7 +45,7 @@ void rmdir_temp_dir(char *dir) {
 
 void db_init(uint8_t *kek, kdfp *kdfp) {
     chdir_temp_dir();
-    init_index("index", kek, kdfp);
+    assert(init_index("index", kek, kdfp) == true);
 }
 
 idx *db_load(uint8_t *kek, kdfp *kdfp) {

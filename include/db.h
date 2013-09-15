@@ -10,6 +10,7 @@
 
 #define      ID_LEN       16
 #define    KDFP_LEN       32
+#define     KEY_LEN       (BOX_KEY_LEN * 2)
 #define   INDEX_LEN(size) (size - (KDFP_LEN + KEY_LEN + BOX_LEN(0) * 2))
 #define   ENTRY_LEN(size) (size - BOX_LEN(0))
 

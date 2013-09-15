@@ -141,24 +141,26 @@ uint32_t recv_export(SSL *s, char *path, kdfp *kdfp, uint8_t *key) {
     uint32_t count = 0;
     uint32_t size, n;
     uint8_t *data;
-    uint8_t  iv[IV_LEN];
-    uint8_t tag[TAG_LEN];
     bool ok = true;
 
     int fd = create_export(path, kdfp);
     if (fd >= 0) {
         while (ok && (data = srecv32(s, &size))) {
-            rand_bytes(iv, IV_LEN);
-            encrypt_gcm(key, iv, data, size, tag);
-            be32enc(&n, size);
+            size_t len = BOX_LEN(size);
+            box   *box = mmalloc(len);
 
-            write(fd, &n, sizeof(n));
-            write(fd, iv,   IV_LEN);
-            write(fd, tag, TAG_LEN);
-            write(fd, data, size);
+            be32enc(&n, len);
+            ok = box && write(fd, &n, sizeof(n)) > 0;
+
+            if (ok) {
+                memcpy(BOX_DATA(box), data, size);
+                encrypt_box(key, box, size);
+                ok = write(fd, box, len) > 0;
+                mfree(box, len);
+                count++;
+            }
 
             mfree(data, size);
-            count++;
         }
         close(fd);
      }
@@ -211,31 +213,32 @@ int load_export(const char *path, kdfp *kdfp) {
 
 uint8_t *next_entry(int fd, uint8_t *key, uint32_t *size) {
     uint8_t *data = NULL;
-    uint8_t  iv[IV_LEN];
-    uint8_t tag[TAG_LEN];
+    uint32_t len;
 
-    if (read(fd, size, sizeof(uint32_t)) == 4) {
-        *size = be32dec(size);
+    if (read(fd, &len, sizeof(uint32_t)) == 4) {
+        len = be32dec(&len);
+        box *box = mmalloc(len);
+        *size = len - BOX_LEN(0);
 
-        if ((data = mmalloc(*size))) {
-            read(fd, iv,   IV_LEN);
-            read(fd, tag, TAG_LEN);
-            read(fd, data, *size);
-
-            if (!decrypt_gcm(key, iv, data, *size, tag)) {
+        if (box && (data = mmalloc(*size))) {
+            read(fd, box, len);
+            if (decrypt_box(key, box, *size)) {
+                memcpy(data, BOX_DATA(box), *size);
+            } else {
                 mfree(data, *size);
                 data = NULL;
             }
         }
+        mfree(box, len);
     }
 
     return data;
 }
 
 bool prompt_export_key(kdfp *kdfp, uint8_t *key) {
-    return prompt_kek("export passwd: ", kdfp, key, true);
+    return prompt_kek("export passwd: ", kdfp, key, KEY_LEN, true);
 }
 
 bool prompt_import_key(kdfp *kdfp, uint8_t *key) {
-    return prompt_kek("export passwd: ", kdfp, key, false);
+    return prompt_kek("export passwd: ", kdfp, key, KEY_LEN, false);
 }

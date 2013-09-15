@@ -79,7 +79,7 @@ SSL *add_entries(uint8_t *kek, uint32_t count, ...) {
 void init_server(kdfp *kdfp, uint8_t *passwd, size_t len, uint8_t kek[KEY_LEN]) {
     char *dir = temp_dir();
     init(dir, kdfp, passwd, len);
-    derive_kek(passwd, len, kdfp, kek);
+    derive_kek(passwd, len, kdfp, kek, KEY_LEN);
     passwd[len] = '\0';
 }
 
@@ -201,7 +201,7 @@ void test_server() {
     uint8_t kek2[KEY_LEN];
     uint8_t data[16];
 
-    derive_kek((uint8_t *) newpass, strlen(newpass), &kdfp, kek2);
+    derive_kek((uint8_t *) newpass, strlen(newpass), &kdfp, kek2, KEY_LEN);
 
     s = client(kek);
     assert(change_passwd(s, kek2) == OK);

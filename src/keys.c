@@ -215,7 +215,7 @@ int client(SSL *s, int cmd, kdfp *kdfp, char *arg, uint32_t limit) {
 
         read_kdfp(data, &tmp);
 
-        if (prompt_kek("passwd: ", &tmp, kek, false)) {
+        if (prompt_kek("passwd: ", &tmp, kek, KEY_LEN, false)) {
             SSL_write(s, kek, KEY_LEN);
             OPENSSL_cleanse(kek, KEY_LEN);
         }
@@ -248,7 +248,7 @@ int client(SSL *s, int cmd, kdfp *kdfp, char *arg, uint32_t limit) {
             code = OK;
             break;
         case passwd:
-            if (prompt_kek("new passwd: ", kdfp, kek, true)) {
+            if (prompt_kek("new passwd: ", kdfp, kek, KEY_LEN, true)) {
                 code = change_passwd(s, kek);
                 OPENSSL_cleanse(kek, KEY_LEN);
             }
@@ -260,7 +260,7 @@ int client(SSL *s, int cmd, kdfp *kdfp, char *arg, uint32_t limit) {
         case export:
             request(s, export, 0, 0);
             rand_bytes(kdfp->salt, SALT_LEN);
-            if (prompt_kek("export passwd: ", kdfp, kek, true)) {
+            if (prompt_kek("export passwd: ", kdfp, kek, KEY_LEN, true)) {
                 count = recv_export(s, arg, kdfp, kek);
                 code = response(s, &count);
                 OPENSSL_cleanse(kek, KEY_LEN);

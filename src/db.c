@@ -54,15 +54,16 @@ bool init_index(char *path, uint8_t *kek, kdfp *kdfp) {
     void    *addr = mmfile(path, &size);
     box     *kbox = BOX_PTR(addr, KDFP_LEN);
     box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
-    uint8_t *key  = kbox->data;
+    uint8_t *key  = BOX_DATA(kbox);
 
     if (!addr) return false;
 
-    uint32_t *counts = (uint32_t *) data->data;
-    *counts++ = htonl(0);
-
     write_kdfp(addr, kdfp);
     rand_bytes(key, KEY_LEN);
+
+    uint32_t *counts = (uint32_t *) BOX_DATA(data);
+    *counts++ = htonl(0);
+
     encrypt_box(key, data, INDEX_LEN(size));
     encrypt_box(kek, kbox, KEY_LEN);
 
@@ -85,14 +86,14 @@ idx *open_index(char *path, kdfp *kdfp) {
 bool load_index(idx **idx, uint8_t *kek) {
     box     *kbox = BOX_PTR((*idx)->addr, KDFP_LEN);
     box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
-    uint8_t *key  = kbox->data;
+    uint8_t *key  = BOX_DATA(kbox);
     size_t  size  = (*idx)->size;
     void    *addr;
 
     if (!decrypt_box(kek, kbox, KEY_LEN))         goto error;
     if (!decrypt_box(key, data, INDEX_LEN(size))) goto error;
 
-    uint8_t *cursor = data->data;
+    uint8_t *cursor = BOX_DATA(data);
     uint32_t *counts = (uint32_t *) cursor;
     uint32_t count = ntohl(*counts++);
     size = sizeof(**idx) + sizeof(term) * count;
@@ -129,7 +130,7 @@ bool rekey_index(char *path, idx *idx, uint8_t *kek, uint8_t *newk) {
     void    *addr = mmfile(path, &size);
     box     *kbox = BOX_PTR(addr, KDFP_LEN);
     box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
-    uint8_t *key  = kbox->data;
+    uint8_t *key  = BOX_DATA(kbox);
 
     if (!addr) return false;
 
@@ -235,12 +236,12 @@ bool update_index(char *path, idx *idx, uint8_t *kek, kdfp *kdfp, uint8_t *id, e
     void    *addr = mmfile(path, &size);
     box     *kbox = BOX_PTR(addr, KDFP_LEN);
     box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
-    uint8_t *key  = kbox->data;
+    uint8_t *key  = BOX_DATA(kbox);
 
     if (!addr || !flags) return false;
 
-    uint32_t *count = (uint32_t *) data->data;
-    uint8_t *cursor = data->data + sizeof(uint32_t);
+    uint32_t *count = (uint32_t *) BOX_DATA(data);
+    uint8_t *cursor = BOX_DATA(data) + sizeof(uint32_t);
 
     *count = idx->count;
     for (uint32_t i = 0; i < idx->count; i++) {
@@ -350,7 +351,7 @@ entry *load_entry(char *path, uint8_t *key) {
         return NULL;
     }
 
-    return read_entry(box->data, size);
+    return read_entry(BOX_DATA(box), size);
 }
 
 bool store_entry(char *path, uint8_t *key, entry *entry) {
@@ -363,7 +364,7 @@ bool store_entry(char *path, uint8_t *key, entry *entry) {
 
     if (!addr) return false;
 
-    write_entry(box->data, entry);
+    write_entry(BOX_DATA(box), entry);
     encrypt_box(key, box, ENTRY_LEN(size));
 
     return mmsync(path, addr, size);

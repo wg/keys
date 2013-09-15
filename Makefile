@@ -1,4 +1,5 @@
 CFLAGS := -std=c99 -Wall -Wextra -g
+LIBS   := -lssl -lcrypto -lm -lz
 SSE2   := yes
 
 TARGET ?= $(shell uname -s 2>/dev/null || echo unknown)
@@ -8,20 +9,23 @@ ifeq ($(TARGET), android)
 	CC      := arm-linux-androideabi-gcc
 	SYSROOT := $(ANDROID_NDK)/platforms/android-14/arch-arm/
 	CFLAGS  += --sysroot=$(SYSROOT)
-	LDFLAGS += -lc -Wl,--fix-cortex-a8 --sysroot=$(SYSROOT)
+	LDFLAGS += -Wl,--fix-cortex-a8 --sysroot=$(SYSROOT)
+	LIBS    += -lc
 	SSE2    :=
+	NACL    ?= deps/android
 	OPENSSL ?= /usr/local/openssl-1.0.1e-android-arm
 else
+	NACL    ?= deps/nacl/build/$(shell hostname -s)
 	OPENSSL ?= /usr/local/openssl-1.0.1e
 endif
 
 ifeq ($(TARGET), linux)
 	CFLAGS  += -D_POSIX_C_SOURCE=200809L -D_BSD_SOURCE
-	LDFLAGS += -lpthread -ldl
+	LIBS    += -lpthread -ldl
 endif
 
 CFLAGS  += -DHAVE_CONFIG_H -I include -I $(OPENSSL)/include
-LDFLAGS += -L $(OPENSSL)/lib -lssl -lcrypto -lm -lz
+LDFLAGS += -L $(OPENSSL)/lib
 
 SRC      := $(filter-out $(if $(SSE2),%-nosse.c,%-sse.c),$(wildcard src/*.c))
 OBJ       = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC))
@@ -39,29 +43,57 @@ clean:
 	$(RM) $(OBJ) $(TEST_OBJ)
 
 keys: $(OBJ)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	@echo LINK $@
+	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 libkeys.so: $(filter-out %keys.o %client.o,$(OBJ)) $(OBJ_DIR)/native.o
-	$(CC) -shared -o $@ $^ $(CFLAGS) $(LDFLAGS) -llog
+	@echo LINK $@
+	$(CC) -shared $(LDFLAGS) -o $@ $^ $(CFLAGS) $(LIBS) -llog
 
 test: tests
 	./tests
 
-tests: $(TEST_OBJ) $(filter-out %keys.o,$(OBJ))
-	$(CC) -o $@ $^ $(LDFLAGS)
+tests: $(filter-out %keys.o,$(OBJ)) $(TEST_OBJ)
+	@echo LINK $@
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(OBJ): | $(OBJ_DIR)
+$(OBJ):      nacl | $(OBJ_DIR)
+$(TEST_OBJ): nacl | $(OBJ_DIR)
 
 $(OBJ_DIR):
 	@mkdir -p $@
 
 $(OBJ_DIR)/%.o : src/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@echo CC $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/%.o : src/android/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@echo CC $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
 $(OBJ_DIR)/%.o : test/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@echo TESTCC $<
+	@$(CC) $(CFLAGS) -c -o $@ $<
 
-.PHONY: all clean test
+# NaCl build
+
+nacl: $(OBJ_DIR)/lib/libnacl.a | $(OBJ_DIR)
+	$(eval  CFLAGS += -I $(OBJ_DIR)/include)
+	$(eval LDFLAGS += -L $(OBJ_DIR)/lib)
+	$(eval    LIBS += -lnacl)
+
+$(NACL)/bin/okabi:
+	@echo Building NaCl
+	@cd deps/nacl && ./do
+
+$(OBJ_DIR)/include/crypto_box.h: $(NACL)/bin/okabi
+	@mkdir -p $(OBJ_DIR)/include
+	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
+	@cp -r $(NACL)/include/$(NACL_ARCH)/*.h $(OBJ_DIR)/include
+
+$(OBJ_DIR)/lib/libnacl.a: $(OBJ_DIR)/include/crypto_box.h
+	@mkdir -p $(OBJ_DIR)/lib
+	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
+	@cp $(NACL)/lib/$(NACL_ARCH)/libnacl.a $@
+
+.PHONY: all clean test nacl
