@@ -10,9 +10,8 @@
 
 #define      ID_LEN       16
 #define    KDFP_LEN       32
-#define  HEADER_LEN       (IV_LEN + TAG_LEN)
-#define   INDEX_LEN(size) (size - (KDFP_LEN + KEY_LEN + HEADER_LEN * 2))
-#define   ENTRY_LEN(size) (size - HEADER_LEN)
+#define   INDEX_LEN(size) (size - (KDFP_LEN + KEY_LEN + BOX_LEN(0) * 2))
+#define   ENTRY_LEN(size) (size - BOX_LEN(0))
 
 #define       ID(term, n) (term->ids + (ID_LEN * n))
 

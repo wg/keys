@@ -52,25 +52,19 @@ bool init_index(char *path, uint8_t *kek, kdfp *kdfp) {
     size += 1024 - (size % 1024);
 
     void    *addr = mmfile(path, &size);
-    uint8_t *ktag = addr + KDFP_LEN;
-    uint8_t *kiv  = ktag +  TAG_LEN;
-    uint8_t *key  = kiv  +   IV_LEN;
-    uint8_t *tag  = key  +  KEY_LEN;
-    uint8_t *iv   = tag  +  TAG_LEN;
-    uint8_t *data = iv   +   IV_LEN;
+    box     *kbox = BOX_PTR(addr, KDFP_LEN);
+    box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
+    uint8_t *key  = kbox->data;
 
     if (!addr) return false;
 
-    write_kdfp(addr, kdfp);
-    rand_bytes(kiv,  IV_LEN);
-    rand_bytes(key, KEY_LEN);
-    rand_bytes(iv,   IV_LEN);
-
-    uint32_t *counts = (uint32_t *) data;
+    uint32_t *counts = (uint32_t *) data->data;
     *counts++ = htonl(0);
 
-    encrypt_gcm(key,  iv, data, INDEX_LEN(size), tag);
-    encrypt_gcm(kek, kiv,  key, KEY_LEN,        ktag);
+    write_kdfp(addr, kdfp);
+    rand_bytes(key, KEY_LEN);
+    encrypt_box(key, data, INDEX_LEN(size));
+    encrypt_box(kek, kbox, KEY_LEN);
 
     return mmsync(path, addr, size);
 }
@@ -89,19 +83,17 @@ idx *open_index(char *path, kdfp *kdfp) {
 }
 
 bool load_index(idx **idx, uint8_t *kek) {
-    uint8_t *ktag = (*idx)->addr + KDFP_LEN;
-    uint8_t *kiv  = ktag + TAG_LEN;
-    uint8_t *key  = kiv  +  IV_LEN;
-    uint8_t *tag  = key  + KEY_LEN;
-    uint8_t *iv   = tag  + TAG_LEN;
-    uint8_t *data = iv   +  IV_LEN;
-    size_t size   = (*idx)->size;
-    void *addr;
+    box     *kbox = BOX_PTR((*idx)->addr, KDFP_LEN);
+    box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
+    uint8_t *key  = kbox->data;
+    size_t  size  = (*idx)->size;
+    void    *addr;
 
-    if (!decrypt_gcm(kek, kiv, key, KEY_LEN,        ktag)) goto error;
-    if (!decrypt_gcm(key, iv, data, INDEX_LEN(size), tag)) goto error;
+    if (!decrypt_box(kek, kbox, KEY_LEN))         goto error;
+    if (!decrypt_box(key, data, INDEX_LEN(size))) goto error;
 
-    uint32_t *counts = (uint32_t *) data;
+    uint8_t *cursor = data->data;
+    uint32_t *counts = (uint32_t *) cursor;
     uint32_t count = ntohl(*counts++);
     size = sizeof(**idx) + sizeof(term) * count;
 
@@ -115,11 +107,11 @@ bool load_index(idx **idx, uint8_t *kek) {
         term *term = &(*idx)->terms[i];
         term->count = ntohl(*counts++);
         term->len   = ntohl(*counts++);
-        data = (uint8_t *) counts;
-        term->str = data;
-        data += term->len;
-        term->ids = data;
-        counts = (uint32_t *) (data + term->count * ID_LEN);
+        cursor = (uint8_t *) counts;
+        term->str = cursor;
+        cursor += term->len;
+        term->ids = cursor;
+        counts = (uint32_t *) (cursor + term->count * ID_LEN);
     }
 
     return true;
@@ -135,23 +127,17 @@ bool rekey_index(char *path, idx *idx, uint8_t *kek, uint8_t *newk) {
     size_t size = idx->size;
 
     void    *addr = mmfile(path, &size);
-    uint8_t *ktag = addr + KDFP_LEN;
-    uint8_t *kiv  = ktag +  TAG_LEN;
-    uint8_t *key  = kiv  +   IV_LEN;
-    uint8_t *tag  = key  +  KEY_LEN;
-    uint8_t *iv   = tag  +  TAG_LEN;
-    uint8_t *data = iv   +   IV_LEN;
+    box     *kbox = BOX_PTR(addr, KDFP_LEN);
+    box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
+    uint8_t *key  = kbox->data;
 
     if (!addr) return false;
 
     memcpy(addr, idx->addr, idx->size);
     memcpy(key,  newk,      KEY_LEN);
 
-    rand_bytes(iv,  IV_LEN);
-    rand_bytes(kiv, IV_LEN);
-
-    encrypt_gcm(key,  iv, data, INDEX_LEN(size), tag);
-    encrypt_gcm(kek, kiv,  key, KEY_LEN,        ktag);
+    encrypt_box(key, data, INDEX_LEN(size));
+    encrypt_box(kek, kbox, KEY_LEN);
 
     return mmsync(path, addr, size);
 }
@@ -247,17 +233,14 @@ bool update_index(char *path, idx *idx, uint8_t *kek, kdfp *kdfp, uint8_t *id, e
     size += 1024 - (size % 1024);
 
     void    *addr = mmfile(path, &size);
-    uint8_t *ktag = addr + KDFP_LEN;
-    uint8_t *kiv  = ktag +  TAG_LEN;
-    uint8_t *key  = kiv  +   IV_LEN;
-    uint8_t *tag  = key  +  KEY_LEN;
-    uint8_t *iv   = tag  +  TAG_LEN;
-    uint8_t *data = iv   +   IV_LEN;
+    box     *kbox = BOX_PTR(addr, KDFP_LEN);
+    box     *data = BOX_PTR(kbox, BOX_LEN(KEY_LEN));
+    uint8_t *key  = kbox->data;
 
     if (!addr || !flags) return false;
 
-    uint32_t *count = (uint32_t *) data;
-    data += sizeof(uint32_t);
+    uint32_t *count = (uint32_t *) data->data;
+    uint8_t *cursor = data->data + sizeof(uint32_t);
 
     *count = idx->count;
     for (uint32_t i = 0; i < idx->count; i++) {
@@ -279,14 +262,14 @@ bool update_index(char *path, idx *idx, uint8_t *kek, kdfp *kdfp, uint8_t *id, e
             continue;
         }
 
-        data = write_term(data, term, id, append);
+        cursor = write_term(cursor, term, id, append);
     }
 
     for (uint32_t i = 0; i < entry->count; i++) {
         string *val = &entry->attrs[i].val;
         if (flags[i] == WRITE) {
             term term  = { .len = val->len, .str = val->str };
-            data = write_term(data, &term, id, true);
+            cursor = write_term(cursor, &term, id, true);
             (*count)++;
         }
     }
@@ -294,14 +277,10 @@ bool update_index(char *path, idx *idx, uint8_t *kek, kdfp *kdfp, uint8_t *id, e
     *count = htonl(*count);
     free(flags);
 
-    data = iv + IV_LEN;
-
     write_kdfp(addr, kdfp);
-    rand_bytes(iv,  IV_LEN);
-    rand_bytes(kiv, IV_LEN);
     memcpy(key, idx->key, KEY_LEN);
-    encrypt_gcm(key,  iv, data, INDEX_LEN(size), tag);
-    encrypt_gcm(kek, kiv,  key, KEY_LEN,        ktag);
+    encrypt_box(key, data, INDEX_LEN(size));
+    encrypt_box(kek, kbox, KEY_LEN);
 
     return mmsync(path, addr, size);
 }
@@ -361,19 +340,17 @@ void write_entry(uint8_t *data, entry *entry) {
 entry *load_entry(char *path, uint8_t *key) {
     size_t size = 0;
 
-    void    *addr = mmfile(path, &size);
-    uint8_t *tag  = addr;
-    uint8_t *iv   = tag + TAG_LEN;
-    uint8_t *data =  iv +  IV_LEN;
+    void *addr = mmfile(path, &size);
+    box  *box  = addr;
 
     if (!addr) return NULL;
 
-    if (!decrypt_gcm(key, iv, data, ENTRY_LEN(size), tag)) {
+    if (!decrypt_box(key, box, ENTRY_LEN(size))) {
         munmap(addr, size);
         return NULL;
     }
 
-    return read_entry(data, size);
+    return read_entry(box->data, size);
 }
 
 bool store_entry(char *path, uint8_t *key, entry *entry) {
@@ -381,16 +358,13 @@ bool store_entry(char *path, uint8_t *key, entry *entry) {
     size += entry_size(entry);
     size += 1024 - (size % 1024);
 
-    uint8_t *addr = mmfile(path, &size);
-    uint8_t *tag  = addr;
-    uint8_t *iv   = tag + TAG_LEN;
-    uint8_t *data =  iv +  IV_LEN;
+    void *addr = mmfile(path, &size);
+    box   *box = addr;
 
     if (!addr) return false;
 
-    write_entry(data, entry);
-    rand_bytes(iv, IV_LEN);
-    encrypt_gcm(key, iv, data, ENTRY_LEN(size), tag);
+    write_entry(box->data, entry);
+    encrypt_box(key, box, ENTRY_LEN(size));
 
     return mmsync(path, addr, size);
 }

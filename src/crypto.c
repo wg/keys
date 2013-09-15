@@ -62,6 +62,15 @@ void encrypt_gcm(uint8_t *key, uint8_t *iv, void *addr, size_t len, uint8_t *tag
     EVP_CIPHER_CTX_cleanup(&ctx);
 }
 
+bool decrypt_box(uint8_t *key, box *box, size_t len) {
+    return decrypt_gcm(key, box->iv, box->data, len, box->tag);
+}
+
+void encrypt_box(uint8_t *key, box *box, size_t len) {
+    rand_bytes(box->iv, IV_LEN);
+    encrypt_gcm(key, box->iv, box->data, len, box->tag);
+}
+
 void rand_bytes(uint8_t *buf, size_t len) {
     assert(RAND_bytes(buf, len) == 1);
 }
