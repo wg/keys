@@ -1,4 +1,4 @@
-CFLAGS := -std=c99 -Wall -Wextra -g
+CFLAGS := -std=c99 -Wall -Wextra
 LIBS   := -lssl -lcrypto -lm -lz
 SSE2   := yes
 
@@ -28,7 +28,7 @@ CFLAGS  += -DHAVE_CONFIG_H -I include -I $(OPENSSL)/include
 LDFLAGS += -L $(OPENSSL)/lib
 
 SRC      := $(filter-out $(if $(SSE2),%-nosse.c,%-sse.c),$(wildcard src/*.c))
-OBJ       = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC))
+OBJ       = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC)) $(OBJ_DIR)/randombytes.o
 OBJ_DIR  := obj
 
 ifeq ($(TARGET), android)
@@ -40,7 +40,9 @@ TEST_OBJ := $(patsubst test/%c,$(OBJ_DIR)/%o,$(wildcard test/*.c))
 all: keys
 
 clean:
-	$(RM) $(OBJ) $(TEST_OBJ)
+	@$(RM) $(OBJ) $(TEST_OBJ)
+	@$(RM) -r $(OBJ_DIR)/include
+	@$(RM) -r $(OBJ_DIR)/lib
 
 keys: $(OBJ)
 	@echo LINK $@
@@ -89,11 +91,18 @@ $(NACL)/bin/okabi:
 $(OBJ_DIR)/include/crypto_box.h: $(NACL)/bin/okabi
 	@mkdir -p $(OBJ_DIR)/include
 	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
+	@echo CP $(NACL)/include/$(NACL_ARCH)
 	@cp -r $(NACL)/include/$(NACL_ARCH)/*.h $(OBJ_DIR)/include
 
 $(OBJ_DIR)/lib/libnacl.a: $(OBJ_DIR)/include/crypto_box.h
 	@mkdir -p $(OBJ_DIR)/lib
 	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
+	@echo CP $(NACL)/lib/$(NACL_ARCH)/libnacl.a
 	@cp $(NACL)/lib/$(NACL_ARCH)/libnacl.a $@
+
+$(OBJ_DIR)/randombytes.o: $(OBJ_DIR)/lib/libnacl.a
+	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
+	@echo CP $(NACL)/lib/$(NACL_ARCH)/randombytes.o
+	@cp $(NACL)/lib/$(NACL_ARCH)/randombytes.o $@
 
 .PHONY: all clean test nacl

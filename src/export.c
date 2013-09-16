@@ -106,7 +106,7 @@ bool import_db(SSL *s, uint8_t *kek, uint32_t *count) {
 
     while (ok && (data = srecv32(s, &size))) {
         uint8_t id[ID_LEN];
-        rand_bytes(id, ID_LEN);
+        randombytes(id, ID_LEN);
 
         if ((entry = read_entry(data, size))) {
             kdfp kdfp;

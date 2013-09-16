@@ -224,7 +224,7 @@ static bool find_entry(SSL *s, idx *idx, uint8_t **matches, uint32_t count) {
 
 static bool add_entry(idx *idx, uint8_t *kek, kdfp *kdfp, entry *entry) {
     uint8_t id[ID_LEN];
-    rand_bytes(id, ID_LEN);
+    randombytes(id, ID_LEN);
     return update_db(idx, kek, kdfp, id, entry, false);
 }
 

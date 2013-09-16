@@ -86,8 +86,8 @@ void encrypt_box(uint8_t *keys, box *outer, size_t len) {
     uint8_t *outer_key = keys;
     uint8_t *inner_key = keys + BOX_KEY_LEN;
 
-    rand_bytes(outer->iv, BOX_IV_LEN);
-    rand_bytes(inner->iv, BOX_IV_LEN);
+    randombytes(outer->iv, BOX_IV_LEN);
+    randombytes(inner->iv, BOX_IV_LEN);
 
     uint8_t *data = inner->tag;
     size_t inner_len = len + crypto_secretbox_ZEROBYTES;
@@ -95,8 +95,4 @@ void encrypt_box(uint8_t *keys, box *outer, size_t len) {
     assert(crypto_secretbox(data, data, inner_len, inner->iv, inner_key) == 0);
 
     encrypt_gcm(outer_key, outer->iv, outer->data, sizeof(box) + len, outer->tag);
-}
-
-void rand_bytes(uint8_t *buf, size_t len) {
-    assert(RAND_bytes(buf, len) == 1);
 }

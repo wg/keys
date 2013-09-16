@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <randombytes.h>
 
 #define       IV_LEN  16
 #define      TAG_LEN  16
@@ -36,7 +37,5 @@ bool prompt_kek(char *, kdfp *, uint8_t *, size_t, bool);
 
 bool decrypt_box(uint8_t *, box *, size_t);
 void encrypt_box(uint8_t *, box *, size_t);
-
-void rand_bytes(uint8_t *, size_t);
 
 #endif

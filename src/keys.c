@@ -259,7 +259,7 @@ int client(SSL *s, int cmd, kdfp *kdfp, char *arg, uint32_t limit) {
             break;
         case export:
             request(s, export, 0, 0);
-            rand_bytes(kdfp->salt, SALT_LEN);
+            randombytes(kdfp->salt, SALT_LEN);
             if (prompt_kek("export passwd: ", kdfp, kek, KEY_LEN, true)) {
                 count = recv_export(s, arg, kdfp, kek);
                 code = response(s, &count);
@@ -293,7 +293,7 @@ uint32_t add_entry(SSL *s, size_t n, uint32_t *count) {
     entry *entry;
     uint32_t code = 1;
 
-    rand_bytes(bytes, n);
+    randombytes(bytes, n);
     encode64url(passwd, bytes, &n, false);
     template.attrs[2].val.len = n;
     template.attrs[2].val.str = passwd;
@@ -334,7 +334,7 @@ uint32_t edit_entry(SSL *s, char *value, uint32_t *count) {
 void generate(size_t n) {
     uint8_t bytes[n];
     uint8_t passwd[n * 2];
-    rand_bytes(bytes, n);
+    randombytes(bytes, n);
     encode64url(passwd, bytes, &n, false);
     printf("%.*s\n", (int) n, passwd);
 }
@@ -344,7 +344,7 @@ entry *editor(entry *entry) {
     uint8_t bytes[ID_LEN];
     size_t size = ID_LEN;
 
-    rand_bytes(bytes, size);
+    randombytes(bytes, size);
     encode64url((uint8_t *) path, bytes, &size, false);
     strncpy(&path[size], ".work", 6);
 

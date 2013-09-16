@@ -26,7 +26,7 @@ idx *db_update(uint8_t *id, entry *entry, bool delete) {
 idx *db_add_entry(char *text, uint8_t *id) {
     uint32_t line;
     entry *e = parse_entry((uint8_t *) text, strlen(text), &line);
-    rand_bytes(id, ID_LEN);
+    randombytes(id, ID_LEN);
     idx *idx = db_update(id, e, false);
     free(e);
     return idx;
@@ -48,7 +48,7 @@ idx *db_delete_entry(uint8_t *id) {
 idx *db_with_entry(char *text, uint8_t *id) {
     kdfp kdfp = { .N = 2, .r = 1, .p = 1};
     db_init(kek, &kdfp);
-    rand_bytes(id, ID_LEN);
+    randombytes(id, ID_LEN);
     return db_add_entry(text, id);
 }
 

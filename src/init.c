@@ -31,10 +31,10 @@ bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
     if (mkdir(path, 0700) || chdir(path)) goto done;
 
     len = sizeof(bytes);
-    rand_bytes(bytes, len);
+    randombytes(bytes, len);
     encode64url(passwd, bytes, &len, false);
 
-    rand_bytes(kdfp->salt, SALT_LEN);
+    randombytes(kdfp->salt, SALT_LEN);
 
     if (!derive_kek(passwd, len, kdfp, kek, KEY_LEN)) goto done;
     if (!init_index("index", kek, kdfp))              goto done;

@@ -25,7 +25,7 @@ Overview
     4. An attacker on the local network who obtains the server's
        private key cannot decrypt any previous network traffic.
 
-    6. An attacker on the local network who obtains a client's
+    5. An attacker on the local network who obtains a client's
        private key but not the database password can only learn
        the database KDF parameters.
 
@@ -89,15 +89,15 @@ Filesystem Metadata
 
 Cryptography
 
-  NaCL and OpenSSL are used for all cryptography and OpenSSL provides
+  NaCl and OpenSSL are used for all cryptography and OpenSSL provides
   the TLS implementation. All encryption is done using a cascade of
   AES256-GCM(k0, XSalsa20Poly1305(k1, ...)). OpenSSL provides the
   AES256-GCM implementation and XSalsa20 + Poly1305 is NaCl's
   secretbox function.
 
-  IVs used for the database key, index, and each entry are 16 bytes of
-  random data generated via RAND_bytes() which also generates the 32
-  byte (256 bit) database key.
+  IVs used for the database key, index, and each entry are randomly
+  generated via NaCl's randombytes() function which also generates the
+  64 byte (512 bit) database key.
 
 Weaknesses
 

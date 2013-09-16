@@ -122,8 +122,8 @@ void test_sanity() {
     box  *outer = malloc(BOX_LEN(len));
     box  *inner = (box *) outer->data;
 
-    rand_bytes(keys, sizeof(keys));
-    rand_bytes(inner->data, len);
+    randombytes(keys, sizeof(keys));
+    randombytes(inner->data, len);
     encrypt_box(keys, outer, len);
 
     uint8_t *k0 = keys;
@@ -174,6 +174,7 @@ void test_sanity() {
     init_index("index", kek, &kdfp);
     entry = parse("foo: bar", &line);
     idx = db_load(kek, &kdfp);
+
     assert(update_index("index", idx, kek, &kdfp, encode_id(1), entry));
     close_index(idx);
     corrupt("index", KDFP_LEN + BOX_LEN(KEY_LEN) + BOX_LEN(0));
@@ -187,7 +188,6 @@ void test_sanity() {
 
     uint8_t id0[ID_LEN];
     char path[PATH_MAX];
-    dir = chdir_temp_dir();
 
     idx = db_with_entry("user: foo", id0);
     entry_path(path, id0, NULL);

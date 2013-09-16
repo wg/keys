@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include <crypto_secretbox.h>
+
 #include "crypto.h"
 #include "base64.h"
 #include "db.h"
@@ -20,7 +22,7 @@ char *temp_dir() {
     uint8_t rand[4];
     size_t len = 4;
 
-    rand_bytes(rand, len);
+    randombytes(rand, len);
     strcpy(dir, "test-");
     encode64url((uint8_t *) &dir[5], rand, &len, false);
     dir[len+5] = 0;
@@ -127,6 +129,9 @@ extern void test_ssl();
 int main(int argc, char **argv) {
     SSL_load_error_strings();
     SSL_library_init();
+
+    assert(KEY_LEN          == 64);
+    assert(crypto_secretbox == crypto_secretbox_xsalsa20poly1305);
 
     struct test {
         char *name;

@@ -59,7 +59,7 @@ bool init_index(char *path, uint8_t *kek, kdfp *kdfp) {
     if (!addr) return false;
 
     write_kdfp(addr, kdfp);
-    rand_bytes(key, KEY_LEN);
+    randombytes(key, KEY_LEN);
 
     uint32_t *counts = (uint32_t *) BOX_DATA(data);
     *counts++ = htonl(0);
@@ -486,7 +486,7 @@ bool rekey_db(idx *idx, uint8_t *kek) {
 
     int lock = open(".lock", O_CREAT | O_EXCL, 0600);
     if (lock != -1) {
-        rand_bytes(key, KEY_LEN);
+        randombytes(key, KEY_LEN);
 
         ok = rekey_index("index.work", idx, kek, key);
 
