@@ -150,11 +150,21 @@ void close_index(idx *idx) {
     }
 }
 
+static bool term_contains(term *t, uint8_t *value, size_t len) {
+    bool match = false;
+    for (uint32_t i = 0; !match && (i + len) <= t->len; i++) {
+        const char *a = (const char *) t->str + i;
+        const char *b = (const char *) value;
+        match = strncasecmp(a, b, len) == 0;
+    }
+    return match;
+}
+
 void search_index(idx *idx, uint8_t *value, size_t len, uint8_t **ids, uint32_t *count) {
     uint32_t found = 0;
     for (uint32_t i = 0; i < idx->count && found < *count; i++) {
         term *term = &idx->terms[i];
-        if (term->len >= len && memcmp(term->str, value, len) == 0) {
+        if (term->len >= len && term_contains(term, value, len)) {
             for (uint32_t j = 0; j < term->count && found < *count; j++) {
                 *ids++ = ID(term, j);
                 found++;

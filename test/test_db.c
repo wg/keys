@@ -199,6 +199,7 @@ void test_db() {
     idx =        db_add_entry("user: baz", id1);
     search_valid(idx, "bar", 1, id0);
     search_valid(idx, "ba",  2, id0, id1);
+    search_valid(idx, "A",   2, id0, id1);
     search_valid(idx, "foo", 0);
     db_destroy(idx);
 
