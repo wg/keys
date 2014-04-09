@@ -13,10 +13,10 @@ ifeq ($(TARGET), android)
 	LIBS    += -lc
 	SSE2    :=
 	NACL    ?= deps/android
-	OPENSSL ?= /usr/local/openssl-1.0.1f-android-arm
+	OPENSSL ?= /usr/local/openssl-1.0.1g-android-arm
 else
 	NACL    ?= deps/nacl/build/$(shell hostname -s)
-	OPENSSL ?= /usr/local/openssl-1.0.1f
+	OPENSSL ?= /usr/local/openssl-1.0.1g
 endif
 
 ifeq ($(TARGET), linux)
