@@ -78,9 +78,12 @@ SSL *add_entries(uint8_t *kek, uint32_t count, ...) {
 
 void init_server(kdfp *kdfp, uint8_t *passwd, size_t len, uint8_t kek[KEY_LEN]) {
     char *dir = temp_dir();
+
+    generate_password(passwd, len);
+    passwd[len] = '\0';
+
     init(dir, kdfp, passwd, len);
     derive_kek(passwd, len, kdfp, kek, KEY_LEN);
-    passwd[len] = '\0';
 }
 
 pthread_t start_server(struct server_cfg *cfg, uint8_t *passwd) {

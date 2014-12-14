@@ -381,12 +381,17 @@ entry *editor(entry *entry) {
 }
 
 bool init_server(kdfp *kdfp, char *dir) {
-    char passwd[PASSWD_LEN + 1];
-    if (!init(dir, kdfp, (uint8_t *) passwd, PASSWD_LEN)) {
+    size_t len = PASSWD_LEN;
+    uint8_t passwd[len + 1];
+
+    generate_password(passwd, len);
+    passwd[len] = '\0';
+
+    if (!init(dir, kdfp, passwd, len)) {
         error("failed to intialize %s: %s\n", dir, strerror(errno));
         return false;
     }
-    printf("initialized '%s', passwd: %.*s\n", dir, PASSWD_LEN, passwd);
+    printf("initialized '%s', passwd: %s    \n", dir, passwd);
     return true;
 }
 

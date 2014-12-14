@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <openssl/engine.h>
 
 #include "interface.h"
 #include "pki.h"

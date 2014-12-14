@@ -12,8 +12,7 @@
 #include "init.h"
 
 bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
-    uint8_t bytes[len * 6 >> 3];
-    uint8_t   kek[KEY_LEN];
+    uint8_t kek[KEY_LEN];
     bool ok = false;
 
     EC_GROUP *group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(EC_CURVE_NAME));
@@ -29,10 +28,6 @@ bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
     if (!client_cert || !X509_sign(client_cert, server_pk, md)) goto done;
 
     if (mkdir(path, 0700) || chdir(path)) goto done;
-
-    len = sizeof(bytes);
-    randombytes(bytes, len);
-    encode64url(passwd, bytes, &len, false);
 
     randombytes(kdfp->salt, SALT_LEN);
 
@@ -50,6 +45,7 @@ bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
     if (client_cert) X509_free(client_cert);
     if (group)       EC_GROUP_free(group);
 
+    OPENSSL_cleanse(kek, KEY_LEN);
     return ok;
 }
 
@@ -61,4 +57,12 @@ bool issue_client_cert(X509 *issuer, EVP_PKEY *ik, X509 **cert, EVP_PKEY **pk) {
     *cert = make_client_cert(group, pk, CLIENT_CN, issuer);
 
     return *cert && X509_sign(*cert, ik, md);
+}
+
+void generate_password(uint8_t *passwd, size_t len) {
+    uint8_t bytes[len * 6 >> 3];
+    len = sizeof(bytes);
+    randombytes(bytes, len);
+    encode64url(passwd, bytes, &len, false);
+    OPENSSL_cleanse(bytes, sizeof(bytes));
 }
