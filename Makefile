@@ -22,6 +22,8 @@ endif
 ifeq ($(TARGET), linux)
 	CFLAGS  += -D_POSIX_C_SOURCE=200809L -D_BSD_SOURCE
 	LIBS    += -lpthread -ldl
+else ifeq ($(TARGET), freebsd)
+	LIBS    += -lpthread
 endif
 
 CFLAGS  += -DHAVE_CONFIG_H -I include -I $(OPENSSL)/include
