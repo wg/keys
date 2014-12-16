@@ -27,54 +27,55 @@ endif
 CFLAGS  += -DHAVE_CONFIG_H -I include -I $(OPENSSL)/include
 LDFLAGS += -L $(OPENSSL)/lib
 
-SRC      := $(filter-out $(if $(SSE2),%-nosse.c,%-sse.c),$(wildcard src/*.c))
-OBJ       = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC)) $(OBJ_DIR)/randombytes.o
 OBJ_DIR  := obj
+
+SRC      := $(filter-out $(if $(SSE2),%-nosse.c,%-sse.c),$(wildcard src/*.c))
+OBJ      := $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC)) $(OBJ_DIR)/randombytes.o
+LIBKEYS  := $(OBJ_DIR)/libkeys.a
 
 ifeq ($(TARGET), android)
 	OBJ := $(patsubst %/interface.o,%/netlink.o,$(OBJ))
 endif
 
 TEST_OBJ := $(patsubst test/%c,$(OBJ_DIR)/%o,$(wildcard test/*.c))
+LIBTEST  := $(OBJ_DIR)/libkeystest.a
 
-all: keys
-
-clean:
-	@$(RM) $(OBJ) $(TEST_OBJ)
-	@$(RM) -r $(OBJ_DIR)/include
-	@$(RM) -r $(OBJ_DIR)/lib
-
-keys: $(OBJ)
+keys: keys.o $(LIBKEYS)
 	@echo LINK $@
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-libkeys.so: $(filter-out %keys.o %client.o,$(OBJ)) $(OBJ_DIR)/native.o
+$(LIBKEYS): $(filter-out %keys.o,$(OBJ))
+	@echo AR $@
+	@$(AR) rcs $@ $^
+
+libkeys.so: native.o $(LIBKEYS)
 	@echo LINK $@
-	$(CC) -shared $(LDFLAGS) -o $@ $^ $(CFLAGS) $(LIBS) -llog
+	@$(CC) -shared $(LDFLAGS) -o $@ $^ $(CFLAGS) $(LIBS) -llog
 
 test: tests
 	./tests
 
-tests: $(filter-out %keys.o,$(OBJ)) $(TEST_OBJ)
+$(LIBTEST): $(filter-out %test.o,$(TEST_OBJ))
+	@echo AR $@
+	@$(AR) rcs $@ $^
+
+tests: test.o $(LIBTEST) $(LIBKEYS)
 	@echo LINK $@
 	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
-$(OBJ):      nacl | $(OBJ_DIR)
-$(TEST_OBJ): nacl | $(OBJ_DIR)
+clean:
+	@$(RM) $(OBJ) $(TEST_OBJ) $(LIBKEYS) $(LIBTEST)
+	@$(RM) -r $(OBJ_DIR)/include
+	@$(RM) -r $(OBJ_DIR)/lib
+
+$(OBJ):      | nacl $(OBJ_DIR)
+$(TEST_OBJ): | nacl $(OBJ_DIR)
 
 $(OBJ_DIR):
 	@mkdir -p $@
 
-$(OBJ_DIR)/%.o : src/%.c
+$(OBJ_DIR)/%.o : %.c
 	@echo CC $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
-
-$(OBJ_DIR)/%.o : src/android/%.c
-	@echo CC $<
-	@$(CC) $(CFLAGS) -c -o $@ $<
-
-$(OBJ_DIR)/%.o : test/%.c
-	@echo TESTCC $<
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
 # NaCl build
@@ -105,4 +106,12 @@ $(OBJ_DIR)/randombytes.o: $(OBJ_DIR)/lib/libnacl.a
 	@echo CP $(NACL)/lib/$(NACL_ARCH)/randombytes.o
 	@cp $(NACL)/lib/$(NACL_ARCH)/randombytes.o $@
 
-.PHONY: all clean test nacl
+.PHONY: clean test nacl
+
+.SUFFIXES:
+.SUFFIXES: .c .o .a .so
+
+vpath %.c src
+vpath %.c src/android
+vpath %.c test
+vpath %.o $(OBJ_DIR)
