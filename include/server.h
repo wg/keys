@@ -1,15 +1,17 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-#include <signal.h>
+typedef struct {
+    pthread_t thread;
+    int sockpair[2];
+    interface ifa;
+    X509 *cert;
+    EVP_PKEY *pk;
+} server_state;
 
-extern volatile sig_atomic_t stop;
-
-void server(interface *, X509 *, EVP_PKEY *);
-
-static bool    add_entry(idx *, uint8_t *, kdfp *, entry *);
-static bool delete_entry(idx *, uint8_t *, kdfp *, uint8_t *);
-static bool   find_entry(SSL *, idx *, uint8_t **, uint32_t);
+server_state *server_start(interface, X509 *, EVP_PKEY *);
+void server_stop(server_state *);
+void server_join(server_state *);
 
 void start(SSL *);
 void  loop(SSL *, idx *, kdfp *, uint8_t *);

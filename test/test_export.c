@@ -28,12 +28,11 @@ void test_export() {
     kdfp kdfp = { .N = 2, .r = 1, .p = 1};
     uint8_t passwd[9];
     uint8_t *data;
-    struct server_cfg cfg;
     SSL *s;
     int fd;
 
     init_server(&kdfp, passwd, sizeof(passwd) - 1, kek);
-    pthread_t tid = start_server(&cfg, passwd);
+    server_state *state = run_server("server.pem", passwd);
     start_client(passwd);
 
     uint32_t size, line, count;
@@ -116,6 +115,6 @@ void test_export() {
     close(fd);
 
     unlink("export.dat");
-    destroy_server(tid, &kdfp, kek);
+    destroy_server(state, &kdfp, kek);
     stop_client();
 }

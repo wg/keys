@@ -13,10 +13,8 @@ void generate(size_t);
 entry *editor(entry *);
 bool parse_kdfp(kdfp *, char *);
 
-bool   init_server(kdfp *, char *);
-void *start_server(void *);
-
-extern void server(interface *, X509 *, EVP_PKEY *);
+bool init_server(kdfp *, char *);
+server_state *run_server();
 
 static char *globarg(char *);
 static void error(char *, ...);

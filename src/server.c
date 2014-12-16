@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include <openssl/err.h>
@@ -22,29 +23,47 @@
 #include "net.h"
 #include "server.h"
 
-volatile sig_atomic_t stop = false;
+void *server(void *);
 
-static void handler(int sig) {
-    if (!stop && sig == SIGINT) {
-        stop = true;
-        raise(sig);
-    }
+static bool    add_entry(idx *, uint8_t *, kdfp *, entry *);
+static bool delete_entry(idx *, uint8_t *, kdfp *, uint8_t *);
+static bool   find_entry(SSL *, idx *, uint8_t **, uint32_t);
+
+server_state *server_start(interface ifa, X509 *cert, EVP_PKEY *pk) {
+    server_state *state = malloc(sizeof(server_state));
+    socketpair(AF_UNIX, SOCK_STREAM, 0, state->sockpair);
+    state->ifa  = ifa;
+    state->cert = cert;
+    state->pk   = pk;
+    pthread_create(&state->thread, NULL, &server, state);
+    return state;
 }
 
-void server(interface *ifa, X509 *cert, EVP_PKEY *pk) {
+void server_stop(server_state *state) {
+    write(state->sockpair[0], "stop", 4);
+}
+
+void server_join(server_state *state) {
+    pthread_join(state->thread, NULL);
+}
+
+void *server(void *arg) {
+    server_state *state = (server_state *) arg;
+
     sockaddr6 saddr;
     sockaddr6 maddr = {
         .sin6_family   = AF_INET6,
         .sin6_port     = htons(atoi(MCAST_PORT)),
-        .sin6_scope_id = ifa->index,
+        .sin6_scope_id = state->ifa.index,
         .sin6_addr     = in6addr_any
     };
     EC_KEY *ecdh = EC_KEY_new_by_curve_name(OBJ_txt2nid(EC_CURVE_NAME));
     SSL_CTX *ctx;
 
-    int ss = server_sock(&ctx, cert, pk, ifa, &saddr);
-    int ms = mcast_sock(ifa, &maddr, MCAST_HOST);
-    if (ss == -1 || ms == -1) goto done;
+    int ss = server_sock(&ctx, state->cert, state->pk, &state->ifa, &saddr);
+    int ms = mcast_sock(&state->ifa, &maddr, MCAST_HOST);
+    int ks = state->sockpair[1];
+    if (ss == -1 || ms == -1 || ks == -1) goto done;
 
     SSL_CTX_set_tmp_ecdh(ctx, ecdh);
 
@@ -53,20 +72,18 @@ void server(interface *ifa, X509 *cert, EVP_PKEY *pk) {
     setsockopt(ms, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     timeout.tv_sec = 0;
 
-    struct sigaction sa  = {
-        .sa_handler = handler,
-        .sa_flags   = 0,
-    };
-    sigfillset(&sa.sa_mask);
-    sigaction(SIGINT,  &sa, NULL);
-    sigaction(SIGPIPE, &sa, NULL);
+    sigset_t block;
+    sigemptyset(&block);
+    sigaddset(&block, SIGPIPE);
+    pthread_sigmask(SIG_BLOCK, &block, NULL);
 
     struct pollfd fds[] = {
         { .fd = ss, .events = POLLIN },
         { .fd = ms, .events = POLLIN },
+        { .fd = ks, .events = POLLIN },
     };
 
-    while (!stop && poll(fds, 2, -1) >= 0) {
+    while (poll(fds, 3, -1) >= 0) {
         if (fds[0].revents & POLLIN) {
             int cs = accept(ss, NULL, NULL);
             SSL *s = SSL_new(ctx);
@@ -84,19 +101,25 @@ void server(interface *ifa, X509 *cert, EVP_PKEY *pk) {
         }
 
         if (fds[1].revents & POLLIN) {
-            pong(ms, pk, ifa, saddr.sin6_port);
+            pong(ms, state->pk, &state->ifa, saddr.sin6_port);
+        }
+
+        if (fds[2].revents & POLLIN) {
+            break;
         }
     }
 
   done:
 
-    EVP_PKEY_free(pk);
-    X509_free(cert);
+    EVP_PKEY_free(state->pk);
+    X509_free(state->cert);
     EC_KEY_free(ecdh);
     if (ctx) SSL_CTX_free(ctx);
     if (ss >= 0) close(ss);
     if (ms >= 0) close(ms);
     ERR_remove_state(0);
+
+    return NULL;
 }
 
 void start(SSL *s) {

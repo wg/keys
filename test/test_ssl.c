@@ -59,20 +59,11 @@ static void cleanup(SSL_CTX **ctx, SSL **ssl, X509 **sert, X509 **cert, EVP_PKEY
 }
 
 void test_ssl() {
-    interface ifs[16];
-    active_interfaces(ifs, 16);
-
     char *passwd = "password";
     char *dir = chdir_temp_dir();
 
     kdfp kdfp = { .N = 2, .r = 1, .p = 1};
     uint8_t kek[KEY_LEN]  = { 0 };
-    struct server_cfg cfg = {
-        .passwd = passwd,
-        .cert   = "server.pem",
-        .ifa    = &ifs[0],
-    };
-    pthread_t tid;
 
     EC_GROUP *group = EC_GROUP_new_by_curve_name(OBJ_txt2nid(EC_CURVE_NAME));
     EC_GROUP_set_asn1_flag(group, OPENSSL_EC_NAMED_CURVE);
@@ -81,7 +72,7 @@ void test_ssl() {
     init_index("index", kek, &kdfp);
     EC_GROUP_free(group);
 
-    assert(pthread_create(&tid, NULL, &run_server, &cfg) == 0);
+    server_state *state = run_server("server.pem", (uint8_t *) passwd);
 
     struct timeval timeout = { .tv_usec = 500 };
     uint32_t usecs = 10000;
@@ -97,7 +88,7 @@ void test_ssl() {
     read_pem("server.pem", NULL, passwd, &sk, 0);
 
     assert(client_ctx(sert, cert, sk) == NULL);
-    assert(server_sock(&ctx, sert, pk, cfg.ifa, &addr) == -1);
+    assert(server_sock(&ctx, sert, pk, &state->ifa, &addr) == -1);
     assert(ctx == NULL);
     cleanup(&ctx, &ssl, &sert, &cert, &sk, &pk);
 
@@ -134,8 +125,8 @@ void test_ssl() {
     assert(SSL_read(ssl, &data, KDFP_LEN) == KDFP_LEN);
     cleanup(&ctx, &ssl, &sert, &cert, &sk, &pk);
 
-    pthread_kill(tid, SIGINT);
-    pthread_join(tid, NULL);
+    server_stop(state);
+    server_join(state);
 
     unlink("server.pem");
     unlink("client.pem");

@@ -17,6 +17,7 @@
 #include "base64.h"
 #include "interface.h"
 #include "protocol.h"
+#include "server.h"
 #include "pki.h"
 #include "mcast.h"
 #include "init.h"
@@ -138,7 +139,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    pthread_t tid = NULL;
+    server_state *state;
 
     dir = globarg(dir);
     cmd = (cmd == 0 && optind < argc) ? find : cmd;
@@ -152,7 +153,7 @@ int main(int argc, char **argv) {
     }
 
     if (serve) {
-        pthread_create(&tid, NULL, start_server, "server.pem");
+        state = run_server();
     }
 
     if (cmd > 0) {
@@ -184,11 +185,7 @@ int main(int argc, char **argv) {
         if (cert) X509_free(cert);
         if (sert) X509_free(sert);
     } else if (serve) {
-        sigset_t block;
-        sigemptyset(&block);
-        sigaddset(&block, SIGINT);
-        pthread_sigmask(SIG_BLOCK, &block, NULL);
-        pthread_join(tid, NULL);
+        server_join(state);
         status = 0;
     } else if (!init && !serve) {
         printf("%s\n", usage);
@@ -395,18 +392,18 @@ bool init_server(kdfp *kdfp, char *dir) {
     return true;
 }
 
-void *start_server(void *arg) {
+server_state *run_server() {
+    server_state *state = NULL;
     interface ifs[16];
     EVP_PKEY *pk;
     X509 *cert;
-    char *pem = (char *) arg;
 
     if (active_interfaces(ifs, 16) > 0) {
-        read_pem(pem, NULL, NULL, &pk, 1, &cert);
-        server(&ifs[0], cert, pk);
+        read_pem("server.pem", NULL, NULL, &pk, 1, &cert);
+        state = server_start(ifs[0], cert, pk);
     }
 
-    return NULL;
+    return state;
 }
 
 bool parse_kdfp(kdfp *kdfp, char *params) {

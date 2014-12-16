@@ -106,16 +106,13 @@ void corrupt(char *path, off_t offset) {
     close(fd);
 }
 
-void *run_server(void *arg) {
-    struct server_cfg *cfg = arg;
+server_state *run_server(char *pem, uint8_t *passwd) {
+    interface ifs[16];
     EVP_PKEY *pk;
     X509 *cert;
-
-    read_pem(cfg->cert, NULL, cfg->passwd, &pk, 1, &cert);
-    stop = false;
-    server(cfg->ifa, cert, pk);
-
-    return NULL;
+    active_interfaces(ifs, 16);
+    read_pem(pem, NULL, passwd, &pk, 1, &cert);
+    return server_start(ifs[0], cert, pk);
 }
 
 extern void test_db();

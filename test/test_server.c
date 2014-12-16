@@ -86,23 +86,9 @@ void init_server(kdfp *kdfp, uint8_t *passwd, size_t len, uint8_t kek[KEY_LEN]) 
     derive_kek(passwd, len, kdfp, kek, KEY_LEN);
 }
 
-pthread_t start_server(struct server_cfg *cfg, uint8_t *passwd) {
-    static interface ifs[16];
-    active_interfaces(ifs, 16);
-
-    cfg->passwd = (char *) passwd;
-    cfg->cert   = "server.pem";
-    cfg->ifa    = &ifs[0];
-
-    pthread_t tid;
-    assert(pthread_create(&tid, NULL, &run_server, cfg) == 0);
-    return tid;
-}
-
-void destroy_server(pthread_t tid, kdfp *kdfp, uint8_t kek[KEY_LEN]) {
-    pthread_kill(tid, SIGINT);
-    pthread_join(tid, NULL);
-
+void destroy_server(server_state *state, kdfp *kdfp, uint8_t kek[KEY_LEN]) {
+    server_stop(state);
+    server_join(state);
     unlink("server.pem");
     unlink("client.pem");
     idx *idx = db_load(kek, kdfp);
@@ -113,10 +99,10 @@ void test_server() {
     kdfp kdfp = { .N = 2, .r = 1, .p = 1};
     uint8_t kek[KEY_LEN];
     uint8_t passwd[9];
-    struct server_cfg cfg;
 
     init_server(&kdfp, passwd, sizeof(passwd) - 1, kek);
-    pthread_t tid = start_server(&cfg, passwd);
+
+    server_state *state = run_server("server.pem", passwd);
     start_client(passwd);
 
     uint32_t count, line;
@@ -238,6 +224,6 @@ void test_server() {
     assert(response(s, &count) == 1);
     disconnect(s);
 
-    destroy_server(tid, &kdfp, kek);
+    destroy_server(state, &kdfp, kek);
     stop_client();
 }

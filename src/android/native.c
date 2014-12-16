@@ -29,28 +29,12 @@
 #include "mcast.h"
 #include "pki.h"
 #include "native.h"
+#include "server.h"
 
 #define     IF_MAX  16
 #define PASSWD_LEN  8
 
-extern volatile sig_atomic_t stop;
-extern void server(interface *, X509 *, EVP_PKEY *);
-
-static pthread_t thread;
-
-void *run_server(void *arg) {
-    interface *ifa = (interface *) arg;
-
-    EVP_PKEY *pk;
-    X509 *cert;
-    read_pem("server.pem", NULL, NULL, &pk, 1, &cert);
-
-    stop = false;
-    server(ifa, cert, pk);
-    free(ifa);
-
-    return NULL;
-}
+static server_state *state;
 
 void JNICALL start_server(JNIEnv *env, jobject o, jstring path, jint index) {
     interface ifs[IF_MAX];
@@ -59,16 +43,17 @@ void JNICALL start_server(JNIEnv *env, jobject o, jstring path, jint index) {
     const char *chars = (*env)->GetStringUTFChars(env, path, 0);
 
     if (chdir(chars) == 0) {
-        interface *ifa = malloc(sizeof(interface));
-        memcpy(ifa, &ifs[index], sizeof(interface));
-        pthread_create(&thread, NULL, &run_server, ifa);
+        EVP_PKEY *pk;
+        X509 *cert;
+        read_pem("server.pem", NULL, NULL, &pk, 1, &cert);
+        state = server_start(ifs[index], cert, pk);
     }
 
     (*env)->ReleaseStringUTFChars(env, path, chars);
 }
 
 void JNICALL stop_server(JNIEnv *env, jobject o) {
-    pthread_kill(thread, SIGINT);
+    server_stop(state);
 }
 
 jstring JNICALL initialize(JNIEnv *env, jclass cls, jstring path, jlong N, jlong r, jlong p) {

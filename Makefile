@@ -72,6 +72,7 @@ clean:
 
 $(OBJ):      | nacl $(OBJ_DIR)
 $(TEST_OBJ): | nacl $(OBJ_DIR)
+$(OBJ_DIR)/native.o: | nacl
 
 $(OBJ_DIR):
 	@mkdir -p $@
