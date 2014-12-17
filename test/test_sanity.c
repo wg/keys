@@ -9,7 +9,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <crypto_secretbox.h>
+#include <sodium/crypto_secretbox.h>
 
 #include "config.h"
 #include "crypto.h"

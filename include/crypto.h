@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
-#include <randombytes.h>
+#include <sodium/randombytes.h>
 
 #define       IV_LEN  16
 #define      TAG_LEN  16

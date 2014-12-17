@@ -7,7 +7,7 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-#include <crypto_secretbox.h>
+#include <sodium/crypto_secretbox.h>
 
 #include "config.h"
 #include "crypto.h"

@@ -10,6 +10,7 @@
 #include "pki.h"
 #include "protocol.h"
 #include "init.h"
+#include <openssl/err.h>
 
 bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
     uint8_t kek[KEY_LEN];

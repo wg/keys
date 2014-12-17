@@ -10,7 +10,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#include <crypto_secretbox.h>
+#include <sodium/crypto_secretbox.h>
 
 #include "crypto.h"
 #include "base64.h"
@@ -127,8 +127,8 @@ void test_main(int argc, char **argv) {
     SSL_load_error_strings();
     SSL_library_init();
 
-    assert(KEY_LEN          == 64);
-    assert(crypto_secretbox == crypto_secretbox_xsalsa20poly1305);
+    assert(KEY_LEN == 64);
+    assert(strcmp(crypto_secretbox_PRIMITIVE, "xsalsa20poly1305") == 0);
 
     struct test {
         char *name;
@@ -157,6 +157,7 @@ void test_main(int argc, char **argv) {
         printf("running tests: %s\n", tests[i].name);
         tests[i].test();
     }
+    printf("OK!\n");
 
   done:
 

@@ -1,38 +1,49 @@
 CFLAGS := -std=c99 -Wall -Wextra
-LIBS   := -lssl -lcrypto -lm -lz
+LIBS   := -lsodium -lssl -lcrypto -lm -lz
 SSE2   := yes
 
-TARGET ?= $(shell uname -s 2>/dev/null || echo unknown)
-override TARGET := $(shell echo $(TARGET) | tr [A-Z] [a-z])
+XCODE  := /Applications/Xcode.app/Contents/Developer
 
-ifeq ($(TARGET), android)
+ifdef TARGET
+	ARCH   := $(word 1,$(subst -, ,$(TARGET)))
+	SYSTEM := $(word 2,$(subst -, ,$(TARGET)))
+else
+	ARCH   := $(shell uname -m 2>/dev/null | sed s/amd64/x86_64/ || echo unknown)
+	SYSTEM := $(shell uname -s 2>/dev/null | tr '[A-Z]' '[a-z]'  || echo unknown)
+	TARGET := $(ARCH)-$(SYSTEM)
+endif
+
+ifeq ($(SYSTEM), android)
 	CC      := arm-linux-androideabi-gcc
 	SYSROOT := $(ANDROID_NDK)/platforms/android-14/arch-arm/
 	CFLAGS  += --sysroot=$(SYSROOT)
 	LDFLAGS += -Wl,--fix-cortex-a8 --sysroot=$(SYSROOT)
 	LIBS    += -lc
 	SSE2    :=
-	NACL    ?= deps/android
-	OPENSSL ?= /usr/local/openssl-1.0.1g-android-arm
-else
-	NACL    ?= deps/nacl/build/$(shell hostname -s)
-	OPENSSL ?= /usr/local/openssl-1.0.1g
-endif
-
-ifeq ($(TARGET), linux)
+else ifeq ($(SYSTEM), iphoneos)
+	SYSROOT := $(XCODE)/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
+	CFLAGS  += --sysroot=$(SYSROOT) -arch $(ARCH) -miphoneos-version-min=8.1
+	SSE2    :=
+else ifeq ($(SYSTEM), iphonesimulator)
+	SYSROOT := $(XCODE)/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk
+	CFLAGS  += --sysroot=$(SYSROOT) -arch $(ARCH) -miphoneos-version-min=8.1
+	SSE2    :=
+else ifeq ($(SYSTEM), linux)
 	CFLAGS  += -D_POSIX_C_SOURCE=200809L -D_BSD_SOURCE
 	LIBS    += -lpthread -ldl
-else ifeq ($(TARGET), freebsd)
+else ifeq ($(SYSTEM), freebsd)
+	CFLAGS  += -D_WITH_DPRINTF
 	LIBS    += -lpthread
 endif
 
-CFLAGS  += -DHAVE_CONFIG_H -I include -I $(OPENSSL)/include
-LDFLAGS += -L $(OPENSSL)/lib
+DEPS    := deps/$(TARGET)
+HEADERS := sodium.h openssl/opensslv.h
+CFLAGS  += -DHAVE_CONFIG_H -Iinclude -I$(DEPS)/include
+LDFLAGS += -L$(DEPS)/lib
 
-OBJ_DIR  := obj
-
+OBJ_DIR  := obj/$(TARGET)
 SRC      := $(filter-out $(if $(SSE2),%-nosse.c,%-sse.c),$(wildcard src/*.c))
-OBJ      := $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC)) $(OBJ_DIR)/randombytes.o
+OBJ       = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC))
 LIBKEYS  := $(OBJ_DIR)/libkeys.a
 
 ifeq ($(TARGET), android)
@@ -43,78 +54,54 @@ TEST_OBJ := $(patsubst test/%c,$(OBJ_DIR)/%o,$(wildcard test/*.c))
 LIBTEST  := $(OBJ_DIR)/libkeystest.a
 
 keys: keys.o $(LIBKEYS)
-	@echo LINK $@
+	$(info LINK $@)
 	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(LIBKEYS): $(filter-out %keys.o,$(OBJ))
-	@echo AR $@
+	$(info AR $@)
 	@$(AR) rcs $@ $^
 
 libkeys.so: native.o $(LIBKEYS)
-	@echo LINK $@
+	$(info LINK $@)
 	@$(CC) -shared $(LDFLAGS) -o $@ $^ $(CFLAGS) $(LIBS) -llog
 
 test: tests
 	./tests
 
 $(LIBTEST): $(filter-out %test.o,$(TEST_OBJ))
-	@echo AR $@
+	$(info AR $@)
 	@$(AR) rcs $@ $^
 
 tests: test.o $(LIBTEST) $(LIBKEYS)
-	@echo LINK $@
-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
+	$(info LINK $@)
+	@$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean:
 	@$(RM) $(OBJ) $(TEST_OBJ) $(LIBKEYS) $(LIBTEST)
 	@$(RM) -r $(OBJ_DIR)/include
 	@$(RM) -r $(OBJ_DIR)/lib
 
-$(OBJ):      | nacl $(OBJ_DIR)
-$(TEST_OBJ): | nacl $(OBJ_DIR)
-$(OBJ_DIR)/native.o: | nacl
+$(OBJ):      $(HEADERS) | $(OBJ_DIR)
+$(TEST_OBJ): $(HEADERS) | $(OBJ_DIR)
 
 $(OBJ_DIR):
 	@mkdir -p $@
 
 $(OBJ_DIR)/%.o : %.c
-	@echo CC $<
+	$(info CC $<)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
-# NaCl build
+$(HEADERS):
+	$(info Buiding depenencies...)
+	@$(MAKE) -C deps TARGETS=$(TARGET)
 
-nacl: $(OBJ_DIR)/lib/libnacl.a | $(OBJ_DIR)
-	$(eval  CFLAGS += -I $(OBJ_DIR)/include)
-	$(eval LDFLAGS += -L $(OBJ_DIR)/lib)
-	$(eval    LIBS += -lnacl)
-
-$(NACL)/bin/okabi:
-	@echo Building NaCl
-	@cd deps/nacl && ./do
-
-$(OBJ_DIR)/include/crypto_box.h: $(NACL)/bin/okabi
-	@mkdir -p $(OBJ_DIR)/include
-	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
-	@echo CP $(NACL)/include/$(NACL_ARCH)
-	@cp -r $(NACL)/include/$(NACL_ARCH)/*.h $(OBJ_DIR)/include
-
-$(OBJ_DIR)/lib/libnacl.a: $(OBJ_DIR)/include/crypto_box.h
-	@mkdir -p $(OBJ_DIR)/lib
-	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
-	@echo CP $(NACL)/lib/$(NACL_ARCH)/libnacl.a
-	@cp $(NACL)/lib/$(NACL_ARCH)/libnacl.a $@
-
-$(OBJ_DIR)/randombytes.o: $(OBJ_DIR)/lib/libnacl.a
-	@$(eval NACL_ARCH := $(shell $(NACL)/bin/okabi | head -1))
-	@echo CP $(NACL)/lib/$(NACL_ARCH)/randombytes.o
-	@cp $(NACL)/lib/$(NACL_ARCH)/randombytes.o $@
-
-.PHONY: clean test nacl
+.PHONY: clean test
 
 .SUFFIXES:
-.SUFFIXES: .c .o .a .so
+.SUFFIXES: .c .o .a .so .h
 
 vpath %.c src
 vpath %.c src/android
 vpath %.c test
+vpath %.h $(DEPS)/include
 vpath %.o $(OBJ_DIR)
