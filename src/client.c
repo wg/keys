@@ -118,3 +118,15 @@ SSL *client_socket(SSL_CTX *ctx, sockaddr6 *addr, struct timeval *timeout) {
 
     return NULL;
 }
+
+char *ipv6_address(struct in6_addr addr) {
+    static char host[NI_MAXHOST];
+    int flags = NI_NUMERICHOST;
+    struct sockaddr_in6 sockaddr = {
+        .sin6_family = AF_INET6,
+        .sin6_addr   = addr,
+    };
+    size_t len = sizeof(sockaddr);
+    getnameinfo((struct sockaddr *) &sockaddr, len, host, NI_MAXHOST, NULL, 0, flags);
+    return host;
+}

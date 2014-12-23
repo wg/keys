@@ -5,12 +5,20 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <sodium.h>
+#include <openssl/err.h>
 #include "base64.h"
 #include "db.h"
 #include "pki.h"
 #include "protocol.h"
 #include "init.h"
-#include <openssl/err.h>
+
+void keys_init() {
+    SSL_load_error_strings();
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    sodium_init();
+}
 
 bool init(char *path, kdfp *kdfp, uint8_t *passwd, size_t len) {
     uint8_t kek[KEY_LEN];

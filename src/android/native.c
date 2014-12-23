@@ -168,9 +168,7 @@ jint JNI_OnLoad(JavaVM *vm, void *reserved) {
         }
     }
 
-    SSL_load_error_strings();
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
+    keys_init();
 
     return JNI_VERSION_1_6;
 }

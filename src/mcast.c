@@ -83,9 +83,3 @@ int mcast_sock(interface *ifa, sockaddr6 *addr, char *host) {
     return -1;
 }
 
-char *name(sockaddr6 *addr, socklen_t len) {
-    static char host[NI_MAXHOST];
-    int flags = NI_NUMERICHOST;
-    getnameinfo((struct sockaddr *) addr, len, host, NI_MAXHOST, NULL, 0, flags);
-    return host;
-}

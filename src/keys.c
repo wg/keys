@@ -55,10 +55,6 @@ static char *usage =
     "        --server            Run server              \n";
 
 int main(int argc, char **argv) {
-    SSL_load_error_strings();
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
-
     struct timeval timeout = { .tv_sec = 5 };
     kdfp kdfp = { .N = 16384, .r = 8, .p = 1 };
     int cmd        = 0;
@@ -139,11 +135,12 @@ int main(int argc, char **argv) {
         }
     }
 
-    server_state *state;
-
     dir = globarg(dir);
     cmd = (cmd == 0 && optind < argc) ? find : cmd;
     arg = (cmd == find ? argv[optind] : arg);
+    server_state *state;
+
+    keys_init();
 
     if (init) {
         if (!init_server(&kdfp, dir)) goto done;
@@ -165,7 +162,7 @@ int main(int argc, char **argv) {
         sk = X509_get_pubkey(sert);
 
         if (find_server(sk, &addr, 1000000, 20)) {
-            printf("keys server at %s\n", name(&addr, sizeof(addr)));
+            printf("keys server at %s\n", ipv6_address(addr.sin6_addr));
             SSL_CTX *ctx = client_ctx(sert, cert, pk);
             SSL *s = client_socket(ctx, &addr, &timeout);
 

@@ -22,4 +22,6 @@ uint32_t find_entries(SSL *, char *, uint32_t, entry **);
 uint32_t delete_entry(SSL *, char *, uint32_t *);
 uint32_t change_passwd(SSL *, uint8_t *);
 
+char *ipv6_address(struct in6_addr);
+
 #endif /* CLIENT_H */

@@ -17,6 +17,5 @@
 bool find_server(EVP_PKEY *, sockaddr6 *, uint32_t, uint32_t);
 int mcast_sock(interface *, sockaddr6 *, char *);
 void *mcast_server(void *);
-char *name(sockaddr6 *, socklen_t);
 
 #endif /* MCAST_H */

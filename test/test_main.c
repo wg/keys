@@ -15,6 +15,7 @@
 #include "crypto.h"
 #include "base64.h"
 #include "db.h"
+#include "init.h"
 #include "test.h"
 
 char *temp_dir() {
@@ -124,8 +125,7 @@ extern void test_server();
 extern void test_ssl();
 
 void test_main(int argc, char **argv) {
-    SSL_load_error_strings();
-    SSL_library_init();
+    keys_init();
 
     assert(KEY_LEN == 64);
     assert(strcmp(crypto_secretbox_PRIMITIVE, "xsalsa20poly1305") == 0);
