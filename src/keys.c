@@ -23,6 +23,7 @@
 #include "init.h"
 #include "keys.h"
 #include "export.h"
+#include "version.h"
 
 static entry template = {
     .count = 4,
@@ -50,6 +51,8 @@ static char *usage =
     "        --passwd            Change db password      \n"
     "        --rekey             Rekey entire db         \n"
     "        --timeout  <secs>   Set network timeout     \n"
+    "        --timeout  <secs>   Set network timeout     \n"
+    "    -v, --version           Print version details   \n"
     "  Server:                                           \n"
     "        --init     <dir>    Initialize db & certs   \n"
     "        --server            Run server              \n";
@@ -82,11 +85,12 @@ int main(int argc, char **argv) {
         { "init",    required_argument, NULL,   'I'    },
         { "kdfp",    required_argument, NULL,   'S'    },
         { "server",  no_argument,       &serve, true   },
+        { "version", no_argument,       NULL,   'v'    },
         { "help",    no_argument,       NULL,   '?'    },
         { NULL,      0,                 NULL,    0     }
     };
 
-    while ((c = getopt_long(argc, argv, "ad:e:g:l:T:I:S:C:D:?", opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "ad:e:g:l:T:I:S:C:D:vh?", opts, NULL)) != -1) {
         switch (c) {
             case 'a':
                 cmd = add;
@@ -127,6 +131,10 @@ int main(int argc, char **argv) {
                     arg = globarg(optarg);
                 }
                 break;
+            case 'v':
+                printf("%s\n", keys_version());
+                break;
+            case 'h':
             case '?':
             case ':':
             default:

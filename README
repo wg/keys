@@ -93,8 +93,9 @@ Acknowledgements
 
   keys contains and/or links to code from a number of open source
   projects including OpenSSL, Colin Percival's scrypt reference
-  implementation, and NaCl, the Networking and Cryptography library
-  by Daniel J. Bernstein, Tanja Lange, Peter Schwabe, et al.
+  implementation, Frank Denis' sodium/libsodium, and NaCl, the
+  Networking and Cryptography library by Daniel J. Bernstein,
+  Tanja Lange, Peter Schwabe, et al.
 
 Cryptography Notice
 
