@@ -160,14 +160,24 @@ static bool term_contains(term *t, uint8_t *value, size_t len) {
     return match;
 }
 
+static bool have_seen(uint8_t *id, uint8_t **ids, uint32_t count) {
+    bool seen = false;
+    for (uint32_t i = 0; !seen && i < count; i++) {
+        seen = memcmp(id, ids[i], ID_LEN) == 0;
+    }
+    return seen;
+}
+
 void search_index(idx *idx, uint8_t *value, size_t len, uint8_t **ids, uint32_t *count) {
     uint32_t found = 0;
     for (uint32_t i = 0; i < idx->count && found < *count; i++) {
         term *term = &idx->terms[i];
         if (term->len >= len && term_contains(term, value, len)) {
             for (uint32_t j = 0; j < term->count && found < *count; j++) {
-                *ids++ = ID(term, j);
-                found++;
+                uint8_t *id = ID(term, j);
+                if (!have_seen(id, ids, found)) {
+                    ids[found++] = id;
+                }
             }
         }
     }

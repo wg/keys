@@ -213,6 +213,10 @@ void test_db() {
     search_valid(idx, "bar", 3, id0, id1, id2);
     db_destroy(idx);
 
+    idx = db_with_entry("foo: bar\nbar: baz", id0);
+    search_valid(idx, "ba", 1, id0);
+    db_destroy(idx);
+
     // rekey db
     kdfp kdfp = { .N = 2, .r = 1, .p = 1};
     uint8_t oldk[KEY_LEN], newk[KEY_LEN];
