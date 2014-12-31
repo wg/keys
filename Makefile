@@ -47,8 +47,12 @@ SRC      := $(filter-out $(if $(SSE2),%-nosse.c,%-sse.c),$(wildcard src/*.c))
 OBJ       = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRC))
 LIBKEYS  := $(OBJ_DIR)/libkeys.a
 
-ifeq ($(TARGET), android)
+ifeq ($(SYSTEM), android)
 	OBJ := $(patsubst %/interface.o,%/netlink.o,$(OBJ))
+else ifeq ($(SYSTEM), iphoneos)
+	OBJ += $(OBJ_DIR)/glue.o
+else ifeq ($(SYSTEM), iphonesimulator)
+	OBJ += $(OBJ_DIR)/glue.o
 endif
 
 TEST_OBJ := $(patsubst test/%c,$(OBJ_DIR)/%o,$(wildcard test/*.c))
@@ -92,6 +96,10 @@ $(OBJ_DIR)/%.o : %.c
 	$(info CC $<)
 	@$(CC) $(CFLAGS) -c -o $@ $<
 
+$(OBJ_DIR)/%.o : %.m
+	$(info CC $<)
+	@$(CC) $(CFLAGS) -c -o $@ $<
+
 $(OBJ_DIR)/version.o: $(OBJ_DIR)/version.h
 
 $(OBJ_DIR)/version.h: .git/index
@@ -104,10 +112,11 @@ $(HEADERS):
 .PHONY: clean test
 
 .SUFFIXES:
-.SUFFIXES: .c .o .a .so .h
+.SUFFIXES: .c .m .o .a .so .h
 
 vpath %.c src
 vpath %.c src/android
+vpath %.m src/ios
 vpath %.c test
 vpath %.h $(DEPS)/include
 vpath %.o $(OBJ_DIR)
