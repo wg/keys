@@ -16,3 +16,11 @@
 #define dprintf fdprintf
 #define mlock(...) (0)
 #endif
+
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if defined(TARGET_OS_IPHONE) && defined(TARGET_CPU_ARM64)
+#include <sys/mman.h>
+#define mlock(...) (0)
+#endif
+#endif
