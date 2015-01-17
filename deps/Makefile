@@ -1,7 +1,7 @@
 TARGETS ?= x86_64-darwin x86_64-iphonesimulator arm64-iphoneos
 
 SODIUM  := $(CURDIR)/libsodium-1.0.1
-OPENSSL := $(CURDIR)/openssl-1.0.1j
+OPENSSL := $(CURDIR)/openssl-1.0.1l
 
 XCODE_TOP = /Applications/Xcode.app/Contents/Developer/Platforms/$(1).platform/Developer
 XCODE_SDK = $(call XCODE_TOP,$(1))/SDKs/$(1).sdk
