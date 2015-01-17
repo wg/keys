@@ -53,7 +53,7 @@ bool find_server(EVP_PKEY *pk, sockaddr6 *addr, uint32_t usecs, uint32_t retries
             EVP_DigestVerifyUpdate(&ctx, &ping, PING_LEN);
             EVP_DigestVerifyUpdate(&ctx, &pong, PONG_LEN);
 
-            if (EVP_DigestVerifyFinal(&ctx, pong.sig, len) == 1) {
+            if (EVP_DigestVerifyFinal(&ctx, pong.sig, len - PONG_LEN) == 1) {
                 memcpy(addr->sin6_addr.s6_addr, &pong.addr, 16);
                 addr->sin6_port = pong.port;
                 ok = true;
