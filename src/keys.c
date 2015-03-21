@@ -51,7 +51,6 @@ static char *usage =
     "        --passwd            Change db password      \n"
     "        --rekey             Rekey entire db         \n"
     "        --timeout  <secs>   Set network timeout     \n"
-    "        --timeout  <secs>   Set network timeout     \n"
     "    -v, --version           Print version details   \n"
     "  Server:                                           \n"
     "        --init     <dir>    Initialize db & certs   \n"
